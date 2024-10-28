@@ -1,3 +1,4 @@
 .env
 nogit/
 __pycache__/
+hf_cache/
