@@ -1,16 +1,19 @@
 import logging
 import os
 
-import dotenv
 import telegram
-from telegram.ext import filters, ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler
+from telegram.ext import ContextTypes
 
-dotenv.load_dotenv()
+import lm
+
+
 
 logging.basicConfig(
   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
   level=logging.INFO
 )
+
+lm_instance = lm.VpsbLmServer2()
 
 async def start(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
   await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
@@ -29,15 +32,12 @@ async def echo(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
       text='topic created'
     )
 
-if __name__ == '__main__':
-  application = ApplicationBuilder().token(
-    token=os.environ.get('TELEGRAM_BOT_TOKEN')
-  ).build()
-  
-  start_handler = CommandHandler('start', start)
-  application.add_handler(start_handler)
-
-  echo_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), echo)
-  application.add_handler(echo_handler)
-  
-  application.run_polling()
+async def chat(update: telegram.Update, context: ContextTypes.DEFAULT_TYPE):
+  res_text = lm_instance.chat_text([
+    {"role": "user", "content": update.message.text}
+  ])
+  await context.bot.send_message(
+    chat_id=update.effective_chat.id,
+    message_thread_id=update.message.message_thread_id,
+    text=res_text
+  )
