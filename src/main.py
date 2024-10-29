@@ -15,7 +15,7 @@ if __name__ == '__main__':
   start_handler = CommandHandler('start', bot.start)
   application.add_handler(start_handler)
 
-  chat_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), bot.chat)
+  chat_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), bot.chat_streaming)
   application.add_handler(chat_handler)
   
   application.run_polling()
