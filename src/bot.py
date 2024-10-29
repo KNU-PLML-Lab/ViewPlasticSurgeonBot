@@ -35,7 +35,7 @@ class ThrottledTelegramChat:
       chat_id=update.effective_chat.id,
       message_thread_id=update.message.message_thread_id,
       text=initial_message or "생각 중...",
-      parse_mode=telegram.constants.ParseMode.MARKDOWN
+      parse_mode=telegram.constants.ParseMode.MARKDOWN_V2
     )
 
     current_text = ""
@@ -46,7 +46,8 @@ class ThrottledTelegramChat:
           chat_id=update.effective_chat.id,
           message_id=message.message_id,
           # message_thread_id=update.message.message_thread_id,
-          text=current_text
+          text=current_text,
+          parse_mode=telegram.constants.ParseMode.MARKDOWN_V2
         )
         self.last_update_time = time.time()
       except telegram.error.RetryAfter as e:
@@ -59,6 +60,12 @@ class ThrottledTelegramChat:
     try:
       for chunk in chat_stream:
         if chunk:
+          # escape  '_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!' 
+          chunk = chunk.replace('_', '\\_').replace('**', '*').replace('[', '\\[').replace(']', '\\]')\
+            .replace('(', '\\(').replace(')', '\\)').replace('~', '\\~').replace('`', '\\`')\
+            .replace('>', '\\>').replace('#', '\\#').replace('+', '\\+').replace('-', '\\-')\
+            .replace('=', '\\=').replace('|', '\\|').replace('{', '\\{').replace('}', '\\}')\
+            .replace('.', '\\.').replace('!', '\\!')
           current_text += chunk
           self.message_buffer.append(chunk)
 
@@ -136,5 +143,5 @@ async def chat_streaming(update: telegram.Update, context: ContextTypes.DEFAULT_
     chat_stream,
     update,
     context,
-    initial_message="생각 중..."
+    initial_message="Thinking\.\.\."
   )
