@@ -131,7 +131,6 @@ class VpsbLmServer:
       max_tokens=128,
     )
 
-    
 
 
   def chat_text(
@@ -140,7 +139,6 @@ class VpsbLmServer:
   ) -> str:
     """
       채팅을 진행하는 메소드
-      TODO: Streaming feature
       - https://github.com/vllm-project/vllm/issues/351
       - https://github.com/vllm-project/vllm/blob/main/vllm/entrypoints/api_server.py#L56-L63
     """
@@ -156,6 +154,9 @@ class VpsbLmServer:
 
 
 class VpsbLmServer2:
+
+  model_name = "Qwen/Qwen2.5-14B-Instruct-AWQ"
+
   def __init__(
     self,
   ):
@@ -164,7 +165,7 @@ class VpsbLmServer2:
       api_key="not-needed"  # 로컬 서버에서는 실제 API 키가 필요 없을 수 있습니다
     )
 
-    self.system_message = "You are a professional plastic surgery consultant. who always responds in the language of the person who spoke to you."
+    self.system_message = "You are a professional plastic surgery consultant."
 
   def chat_text(
     self,
@@ -175,7 +176,7 @@ class VpsbLmServer2:
       *messages
     ]
     res = self.client.chat.completions.create(
-      model="Qwen/Qwen2.5-72B-Instruct-AWQ",
+      model=self.model_name,
       messages=messages,
       temperature=0.7,
     )
@@ -192,7 +193,7 @@ class VpsbLmServer2:
       *messages
     ]
     chat_stream = self.client.chat.completions.create(
-      model="Qwen/Qwen2.5-72B-Instruct-AWQ",
+      model=self.model_name,
       messages=messages,
       temperature=0.7,
       stream=True,

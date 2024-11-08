@@ -237,3 +237,105 @@ class Sqlite3Utils:
         leave=False
       ):
         db_to_merge_into.db_safe_insert_many_tuple(table_name, rows)
+
+class Sqlite3TableRoomInfo(Sqlite3Table):
+  def _init_db(self) -> None:
+    self._db.conn.execute(
+      'CREATE TABLE IF NOT EXISTS {} (\
+      user_id INTEGER PRIMARY KEY,\
+      admin_forum_id INTEGER\
+      )'.format(self._table_name)
+    )
+    self._db.conn.execute(
+      'CREATE INDEX IF NOT EXISTS {}_user_id ON {} (user_id)'.format(self._table_name, self._table_name)
+    )
+
+  def tuple_to_dict(self, row: Tuple[Any, ...]) -> Dict[str, Any]:
+    return {
+      'user_id': row[0],
+      'admin_forum_id': row[1],
+    }
+  
+  def get_row_from_user_id(self, user_id: int) -> Dict[str, Any]:
+    cursor = self._db.conn.cursor()
+    cursor.execute('SELECT * FROM {} WHERE user_id=?'.format(self._table_name), (user_id,))
+    row = cursor.fetchone()
+    if row is None:
+      return None
+    return self.tuple_to_dict(row)
+
+  def insert_row(self, user_id: int, admin_forum_id: int) -> None:
+    self.safe_insert_many_tuple([(user_id, admin_forum_id)])
+
+class Sqlite3TableRoomChats(Sqlite3Table):
+  def _init_db(self) -> None:
+    # sender: 'user' or 'assistant'
+    self._db.conn.execute(
+      'CREATE TABLE IF NOT EXISTS {} (\
+      id INTEGER PRIMARY KEY AUTOINCREMENT,\
+      user_id INTEGER,\
+      sender TEXT,\
+      message TEXT,\
+      date TEXT\
+      )'.format(self._table_name)
+    )
+
+  # def safe_insert_many_tuple(self, rows: List[Tuple[Any, ...]]) -> None:
+  #   # New cursor for transaction
+  #   cur = self._db.conn.cursor()
+  #   cur.execute('BEGIN TRANSACTION')
+  #   # Insert parameteried query
+  #   retry_count = 0
+  #   while True:
+  #     try:
+  #       cur.executemany('INSERT INTO {} VALUES (user_id, sender, message, date)'.format(
+  #         self._table_name
+  #       ), rows)
+  #       cur.execute('COMMIT')
+  #       cur.close()
+  #       break
+  #     except sqlite3.OperationalError as e:
+  #       if 'database is locked' in str(e) and retry_count < self.max_retry:
+  #         retry_count += 1
+  #         print('🔒 Database is locked, retrying... ({} / {})'.format(retry_count, self.max_retry))
+  #         # sleep random time between 0.1 and 0.5 seconds
+  #         time.sleep(0.1 + 0.4 * random.random())
+  #       else:
+  #         # Rollback transaction
+  #         cur.execute('ROLLBACK')
+  #         cur.close()
+  #         raise e
+
+  def tuple_to_dict(self, row: Tuple[Any, ...]) -> Dict[str, Any]:
+    return {
+      'id': row[0],
+      'user_id': row[1],
+      'sender': row[2],
+      'message': row[3],
+    }
+
+  def insert_row(self, user_id: int, sender: str, message: str, date: str) -> None:
+    self.safe_insert_many_tuple([(None, user_id, sender, message, date)])
+
+  def get_last_rows_from_user_id(self, user_id: int, count: int) -> List[Dict[str, Any]]:
+    cursor = self._db.conn.cursor()
+    cursor.execute('SELECT * FROM {} WHERE user_id=? ORDER BY id DESC LIMIT ?'.format(self._table_name), (user_id, count))
+    return [self.tuple_to_dict(row) for row in cursor.fetchall()]
+
+
+
+def build_history(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+  history = []
+  for row in rows:
+    if row['sender'] == 'user':
+      history.append({'role': 'user', 'content': row['message']})
+    elif row['sender'] == 'assistant':
+      history.append({'role': 'assistant', 'content': row['message']})
+  return history
+
+
+
+# Singletons
+db = Sqlite3Db('chatbot.db')
+room_info = Sqlite3TableRoomInfo(db, 'room_info')
+room_chats = Sqlite3TableRoomChats(db, 'room_chats')
