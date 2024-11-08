@@ -2,3 +2,4 @@
 nogit/
 __pycache__/
 hf_cache/
+chatbot.db

@@ -7,6 +7,8 @@ import os
 
 import openai
 
+import db
+
 
 
 def run_gguf_inference(
@@ -165,7 +167,8 @@ class VpsbLmServer2:
       api_key="not-needed"  # 로컬 서버에서는 실제 API 키가 필요 없을 수 있습니다
     )
 
-    self.system_message = "You are a professional plastic surgery consultant."
+    config = db.config.load_config()
+    self.system_message = config.get('system_prompt') or  "You are a professional plastic surgery consultant."
 
   def chat_text(
     self,

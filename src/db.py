@@ -4,6 +4,7 @@ import os
 import time
 import random
 from typing import List, Dict, Any, Generator, Tuple
+import json
 
 from tqdm import tqdm
 
@@ -263,6 +264,14 @@ class Sqlite3TableRoomInfo(Sqlite3Table):
     if row is None:
       return None
     return self.tuple_to_dict(row)
+  
+  def get_row_from_admin_forum_id(self, admin_forum_id: int) -> Dict[str, Any]:
+    cursor = self._db.conn.cursor()
+    cursor.execute('SELECT * FROM {} WHERE admin_forum_id=?'.format(self._table_name), (admin_forum_id,))
+    row = cursor.fetchone()
+    if row is None:
+      return None
+    return self.tuple_to_dict(row)
 
   def insert_row(self, user_id: int, admin_forum_id: int) -> None:
     self.safe_insert_many_tuple([(user_id, admin_forum_id)])
@@ -324,9 +333,52 @@ class Sqlite3TableRoomChats(Sqlite3Table):
 
 
 
+class Sqlite3TableConfig(Sqlite3Table):
+  def _init_db(self) -> None:
+    self._db.conn.execute(
+      'CREATE TABLE IF NOT EXISTS {} (\
+      key INTEGER PRIMARY KEY,\
+      json_data TEXT\
+      )'.format(self._table_name)
+    )
+
+  def tuple_to_dict(self, row: Tuple[Any, ...]) -> Dict[str, Any]:
+    return {
+      'key': row[0],
+      'json_data': row[1],
+    }
+  
+  def save_config(self, json_dict: dict) -> None:
+    json_str = json.dumps(json_dict)
+
+    key = 0
+    # Update row if exists
+    cursor = self._db.conn.cursor()
+    cursor.execute('SELECT * FROM {} WHERE key=?'.format(self._table_name), (key,))
+    if cursor.fetchone() is not None:
+      cursor.execute('UPDATE {} SET json_data=? WHERE key=?'.format(self._table_name), (json_str, key))
+    else:
+      cursor.execute('INSERT INTO {} VALUES (?, ?)'.format(self._table_name), (key, json_str))
+    self._db.conn.commit()
+      
+  def load_config(self) -> dict:
+    key = 0
+    cursor = self._db.conn.cursor()
+    cursor.execute('SELECT * FROM {} WHERE key=?'.format(self._table_name), (key,))
+    row = cursor.fetchone()
+    if row is None:
+      return {}
+    json_str = row[1]
+
+    return json.loads(json_str)
+
+
+
 def build_history(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
   history = []
   for row in rows:
+    if not row['message']:
+      continue
     if row['sender'] == 'user':
       history.append({'role': 'user', 'content': row['message']})
     elif row['sender'] == 'assistant':
@@ -336,6 +388,9 @@ def build_history(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 # Singletons
+prompt_update_state = False
+ai_answer_state = True
 db = Sqlite3Db('chatbot.db')
 room_info = Sqlite3TableRoomInfo(db, 'room_info')
 room_chats = Sqlite3TableRoomChats(db, 'room_chats')
+config = Sqlite3TableConfig(db, 'config')
